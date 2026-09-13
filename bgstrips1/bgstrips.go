@@ -98,7 +98,6 @@ func (m model) createView() string {
 		}
 		state = (state + 1) % (2 + (m.hPadding * 2))
 		s.WriteString("\n")
-
 	}
 	return s.String()
 }

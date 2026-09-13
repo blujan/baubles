@@ -11,9 +11,9 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/acarl005/stripansi"
 	"github.com/blujan/baubles/bgstrips1"
 	"github.com/blujan/baubles/cell"
+	"github.com/charmbracelet/x/ansi"
 )
 
 //
@@ -222,7 +222,7 @@ func (m model) showKeyUnpress(msg UnpressMsg) {
 			if key.Matches(msg.key, item) {
 				m.keys.full[rindex][index].SetHelp(
 					item.Help().Key,
-					stripansi.Strip(msg.desc),
+					ansi.Strip(msg.desc),
 				)
 				return
 			}
