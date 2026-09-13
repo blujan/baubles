@@ -85,11 +85,12 @@ var roundedBorder = lipgloss.Border{
 type UnpressMsg struct {
 	key  tea.KeyPressMsg
 	desc string
+	tag  uint64
 }
 
-func unpress(key tea.KeyPressMsg, desc string) tea.Cmd {
+func unpress(key tea.KeyPressMsg, desc string, tag uint64) tea.Cmd {
 	return tea.Tick(time.Millisecond*100, func(_ time.Time) tea.Msg {
-		return UnpressMsg{key, desc}
+		return UnpressMsg{key, desc, tag}
 	})
 }
 
@@ -101,8 +102,9 @@ type keymap struct {
 	Quit key.Binding
 	// short func() []key.Binding
 	// full  func() [][]key.Binding
-	short []key.Binding
-	full  [][]key.Binding
+	short  []key.Binding
+	full   [][]key.Binding
+	bounce [][]uint64
 }
 
 var keys = keymap{
@@ -196,11 +198,17 @@ func (m *model) GenerateHelp() {
 		}
 	}
 
+	m.keys.bounce = make([][]uint64, len(full))
+	for index := range m.keys.bounce {
+		m.keys.bounce[index] = make([]uint64, len(full[index]))
+	}
+
 	m.keys.short = short
 	m.keys.full = full
+
 }
 
-func (m model) showKeyPress(msg tea.KeyPressMsg) tea.Cmd {
+func (m model) showKeyPress(msg tea.KeyPressMsg) (model, tea.Cmd) {
 	for rindex, row := range m.keys.full {
 		for index, item := range row {
 			if key.Matches(msg, item) {
@@ -209,21 +217,24 @@ func (m model) showKeyPress(msg tea.KeyPressMsg) tea.Cmd {
 					item.Help().Key,
 					m.styles.TextPressed.Render(desc),
 				)
-				return unpress(msg, desc)
+				m.keys.bounce[rindex][index]++
+				return m, unpress(msg, desc, m.keys.bounce[rindex][index])
 			}
 		}
 	}
-	return nil
+	return m, nil
 }
 
 func (m model) showKeyUnpress(msg UnpressMsg) {
 	for rindex, row := range m.keys.full {
 		for index, item := range row {
 			if key.Matches(msg.key, item) {
-				m.keys.full[rindex][index].SetHelp(
-					item.Help().Key,
-					ansi.Strip(msg.desc),
-				)
+				if m.keys.bounce[rindex][index] == msg.tag {
+					m.keys.full[rindex][index].SetHelp(
+						item.Help().Key,
+						ansi.Strip(msg.desc),
+					)
+				}
 				return
 			}
 		}
@@ -250,7 +261,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.background[m.bgIndex] = bg.(Background)
 		return m, tea.Batch(cmd, bgCmd)
 	case tea.KeyPressMsg:
-		cmd = m.showKeyPress(msg)
+		m, cmd = m.showKeyPress(msg)
 		switch {
 		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
